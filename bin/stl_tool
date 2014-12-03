@@ -1,0 +1,31 @@
+#!/usr/bin/env ruby
+
+require 'optparse'
+require '../lib/stl_tool'
+
+
+if ARGV.length == 0
+    ARGV = ["--help"]
+end
+
+
+options = {}
+OptionParser.new do |opts|
+  opts.banner = "Usage: stl_tool [options]"
+
+  opts.on("-i [PATH]", "--input [PATH]", "File to be parsed") do |path|
+    options[:input] = path
+  end
+
+  opts.on("-v", "--[no-]verbose", "Verbose output") do |v|
+    options[:verbose] = v
+  end
+
+end.parse!
+
+
+if File.file?(options[:input])
+  model = STLModel.new(options[:input], options[:verbose])
+else
+  puts "Input path does not seem to point to a file :("
+end

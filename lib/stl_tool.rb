@@ -74,13 +74,18 @@ end
 
 
 class STLModel
-  def initialize(stl_path)
+  def initialize(stl_path, verbose_output=false)
     @file = File.open(stl_path, "rb")
     @path = stl_path
     header = @file.read(80)
     @file.rewind
     @faces = []
-    puts "Parsing #{stl_path}..."
+    @verbose = verbose_output
+
+    if @verbose 
+      puts "Parsing #{stl_path}..."
+    end
+
     if header.start_with?("solid ")
       # the file is an ascii formatted stl
       process_ascii
@@ -89,11 +94,15 @@ class STLModel
       process_binary
     end
 
-    puts "This file contains #{@faces.length} faces."
+    if @verbose
+      puts "This file contains #{@faces.length} faces."
+    end
   end
 
   def process_binary
-    puts "The file in question is a binary stl file."
+    if @verbose
+      puts "The file in question is a binary stl file."
+    end
     header = @file.read(80).strip
     expecting = @file.read(4).unpack('L')[0] # uint32
     
@@ -115,11 +124,13 @@ class STLModel
   end
 
   def process_ascii
-    puts "The file in question is an ascii stl file."
+    if @verbose
+      puts "The file in question is an ascii stl file."
+    end
     pending = nil
     @file.each.with_index do |line, line_num|
       # start building a new face in the model
-      if line.start_with?("facet")
+      if line.strip.start_with?("facet")
         params = line.split(" ").each { |param| param.strip.downcase }
         if params.length == 5 and params[1] == "normal"
           normal = Vector.elements(params[2,3].map { |scalar| scalar.to_f })
@@ -134,14 +145,14 @@ class STLModel
       end
       
       # add a vertex to the pending face
-      if line.start_with?("vertex") and pending
+      if line.strip.start_with?("vertex") and pending
         params = line.split(" ").each { |param| param.strip.downcase }
         position = Vector.elements(params[1,3].map { |scalar| scalar.to_f })
         pending.add_position(position)
       end
 
       # add the pending face to our model
-      if line.start_with?("endfacet")
+      if line.strip.start_with?("endfacet")
         if pending and pending.complete?
           @faces << pending
         else
@@ -150,16 +161,11 @@ class STLModel
         end
       end
     end
-    puts "Parsed #{@faces.length} triangles."
+    if @verbose
+      puts "Parsed #{@faces.length} triangles."
+    end
   end
 
   private :process_binary
   private :process_ascii
 end
-
-
-test_path = '/home/aeva/library/models/'
-sappho = test_path + 'sappho/sappho.stl'
-wrench = test_path + 'wrench_ascii.skewed.stl'
-#model = STLModel.new wrench
-model = STLModel.new sappho
