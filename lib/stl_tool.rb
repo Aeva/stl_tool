@@ -4,8 +4,6 @@ require "matrix"
 class STLParserError < StandardError; end
 
 
-
-
 class Face
   def initialize(positions=nil, normals=nil)
     @positions = []
@@ -22,18 +20,29 @@ class Face
     end
   end
 
-
   def complete?
     return @positions.length == 3
   end
 
+  def per_vertex
+    if complete?
+      i = 0
+      for position in @positions do
+        i+=1
+        # if @normals
+        #   normal = @normals[index]
+        # else
+        # end
+        yield position
+      end
+    end
+  end
 
   def add_position(position)
     if @positions.length < 3
       @positions << position
     end
   end
-
   
   def to_s
     if @special_normals
@@ -42,7 +51,6 @@ class Face
       return "<face p=#{@positions}>"
     end
   end
-
 
   def to_stl(type)
     if type == 'binary'
@@ -53,24 +61,18 @@ class Face
     
   end
 
-
   def to_binary_stl
     return ""
   end
-
 
   def to_ascii_stl
     return ""
   end
 
-
   def to_obj
     return ""
   end
-
 end
-    
-
 
 
 class STLModel
@@ -99,6 +101,12 @@ class STLModel
     end
   end
 
+  def per_face
+    for face in @faces do
+      yield face
+    end
+  end
+  
   def process_binary
     if @verbose
       puts "The file in question is a binary stl file."
@@ -168,4 +176,54 @@ class STLModel
 
   private :process_binary
   private :process_ascii
+end
+
+
+def model_stats(model)
+  minimums = [nil, nil, nil]
+  maximums = [nil, nil, nil]
+  average = nil
+  count = 0
+  model.per_face { |face|
+    face.per_vertex { |position|
+      0.upto(2) { |i|
+        val = position[i]
+        if minimums[i] == nil || val < minimums[i]
+          minimums[i] = val
+        end
+        if maximums[i] == nil || val > maximums[i]
+          maximums[i] = val
+        end
+        if average == nil
+          average = position
+        else
+          average += position
+        end
+        count += 1
+      }
+    }
+  }
+  average /= count
+  a_x = average[0].round(3)
+  a_y = average[1].round(3)
+  a_z = average[2].round(3)
+
+  min_x = minimums[0].round(3)
+  min_y = minimums[1].round(3)
+  min_z = minimums[2].round(3)
+  max_x = maximums[0].round(3)
+  max_y = maximums[1].round(3)
+  max_z = maximums[2].round(3)
+
+
+  puts "Model statistics:"
+  puts " - average: (#{a_x}, #{a_y}, #{a_z})"
+  puts " - center: "
+  puts " - min x: #{min_x}"
+  puts " - min y: #{min_y}"
+  puts " - min z: #{min_z}"
+  puts " - max x: #{max_x}"
+  puts " - max y: #{max_y}"
+  puts " - max z: #{max_z}"
+  puts count
 end

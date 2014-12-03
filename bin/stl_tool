@@ -17,6 +17,10 @@ OptionParser.new do |opts|
     options[:input] = path
   end
 
+  opts.on("--stats", "Output data about the model") do |s|
+    options[:stats] = s
+  end
+
   opts.on("-v", "--[no-]verbose", "Verbose output") do |v|
     options[:verbose] = v
   end
@@ -26,6 +30,10 @@ end.parse!
 
 if File.file?(options[:input])
   model = STLModel.new(options[:input], options[:verbose])
+  if options[:stats]
+    model_stats(model)
+  end
 else
   puts "Input path does not seem to point to a file :("
 end
+
