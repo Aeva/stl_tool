@@ -17,18 +17,22 @@ def main(model, options)
   if options[:transcode]
     output = nil
     ext = nil
-    if options[:transcode] == "STL_BIN"
+    if options[:transcode].upcase == "STL_BIN"
       output = model.output_bin
-      ext = "stl"
+      ext = ".binary.stl"
+    end
+    if options[:transcode].upcase == "STL_ASCII"
+      output = model.output_ascii
+      ext = ".ascii.stl"
     end
     if not options[:output]
-      put output
+      print output
     else
       target = options[:output]      
       if not File.file?(target)
         if File.directory?(target)
           target << "/" << File.basename(options[:input])
-          target << ".transcoded.#{ext}"
+          target << "#{ext}"
         else
           if !File.directory?(File.dirname(target))
             puts "Cannot save output to #{target} (parent directory does not exist)."

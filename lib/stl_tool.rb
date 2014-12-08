@@ -112,7 +112,8 @@ class Face
   def to_stl(type)
     if type == 'binary'
       return self.to_binary_stl
-    elif type == 'ascii'
+    end
+    if type == 'ascii'
       return self.to_ascii_stl
     end    
   end
@@ -126,11 +127,7 @@ class Face
 
       # Surface normal, as a tripple of Float32s 
       normal = self.single_normal
-      if normal 
-        output << normal.to_a.pack("e3")
-      else
-        output << [0,0,0].pack("e3")
-      end
+      output << normal.to_a.pack("e3")
 
       # Each vertex position, as a tripple of Float32s
       a,b,c = @positions
@@ -148,7 +145,19 @@ class Face
   # Transcode the face to ascii formatted STL
   #
   def to_ascii_stl
-    return ""
+    output = ""
+    if self.complete?
+      nx, ny, nz = self.single_normal.to_a
+      output << "facet normal #{nx} #{ny} #{nz}\n"
+      output << "    outer loop\n"
+      @positions.each do |coord|
+        cx, cy, cz = coord.to_a
+        output << "        vertex #{cx} #{cy} #{cz}\n"
+      end
+      output << "    endloop\n"
+      output << "endfacet\n"
+    end
+    return output
   end
 
   #
@@ -260,7 +269,14 @@ class STLModel
   end
 
   def output_ascii
-    return "FIXME: ascii STL output."
+    output = "solid model\n"
+    for face in @faces do
+      data = face.to_stl("ascii")
+      if data
+        output << data
+      end
+    end
+    return output
   end
 
   def output_bin
