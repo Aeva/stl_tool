@@ -4,6 +4,15 @@ require "matrix"
 class STLParserError < StandardError; end
 
 
+# take the cross product of two vec3s
+def cross_product(lhs, rhs)
+  cx = lhs[1] * rhs[2] - lhs[2] * rhs[1]
+  cy = lhs[2] * rhs[0] - lhs[0] * rhs[2]
+  cz = lhs[0] * rhs[1] - lhs[1] * rhs[0]
+  return Vector.elements([cx, cy, cz])
+end
+
+
 class Face
   def initialize(positions=nil, normals=nil)
     @positions = []
@@ -15,35 +24,80 @@ class Face
     end
 
     if normals
-      @normals = normals
-      @special_normals = true
+      a,b,c = normals
+      if a.magnitude>0.0 && b.magnitude>0.0 && c.magnitude>0.0
+        @normals = normals
+        @special_normals = true
+      end
     end
   end
 
+  #
+  # Returns true if this object has three vertices defined.
+  #
   def complete?
     return @positions.length == 3
   end
 
+  #
+  # Return the face's vertex normals.
+  #
+  def normals
+    if self.complete?
+      if @normals.length == 3
+        return @normals
+      else
+        a,b,c = @positions
+        lhs = b-a
+        rhs = c-a
+        #normal = lhs.cross_product(rhs).normalize
+        normal = cross_product(lhs, rhs)
+        return [normal]*3
+      end
+    else
+      return nil
+    end
+  end
+
+  #
+  # Returns the surface normal.
+  #
+  def single_normal
+    normals = self.normals
+    if normals != nil
+      a,b,c = self.normals
+      average = (a+b+c)/3
+      return average.normalize
+    else
+      return nil
+    end
+  end
+
+  #
+  # Do some calculation per vertex.
+  #
   def per_vertex
     if complete?
       i = 0
       for position in @positions do
         i+=1
-        # if @normals
-        #   normal = @normals[index]
-        # else
-        # end
         yield position
       end
     end
   end
 
+  #
+  # Add a vertex position to the face.
+  #
   def add_position(position)
     if @positions.length < 3
       @positions << position
     end
   end
   
+  #
+  # Generic string representation.
+  #
   def to_s
     if @special_normals
       return "<face p=#{@positions} -- n=#{@normals}>"
@@ -52,23 +106,54 @@ class Face
     end
   end
 
+  #
+  # Transcode the face to STL
+  #
   def to_stl(type)
     if type == 'binary'
       return self.to_binary_stl
     elif type == 'ascii'
       return self.to_ascii_stl
-    end
-    
+    end    
   end
 
+  #
+  # Transcode the face to binary formatted STL
+  #
   def to_binary_stl
-    return ""
+    output = "".b
+    if self.complete?
+
+      # Surface normal, as a tripple of Float32s 
+      normal = self.single_normal
+      if normal 
+        output << normal.to_a.pack("e3")
+      else
+        output << [0,0,0].pack("e3")
+      end
+
+      # Each vertex position, as a tripple of Float32s
+      a,b,c = @positions
+      output << a.to_a.pack("e3")
+      output << b.to_a.pack("e3")
+      output << c.to_a.pack("e3")
+
+      # Unused "attributes" uint16
+      output << [0].pack("S")
+    end
+    return output
   end
 
+  #
+  # Transcode the face to ascii formatted STL
+  #
   def to_ascii_stl
     return ""
   end
 
+  #
+  # Transcode the face to OBJ.
+  #
   def to_obj
     return ""
   end
@@ -172,6 +257,31 @@ class STLModel
     if @verbose
       puts "Parsed #{@faces.length} triangles."
     end
+  end
+
+  def output_ascii
+    return "FIXME: ascii STL output."
+  end
+
+  def output_bin
+    # write the STL header
+    output = "Transcoded STL model via stl_tool.".b
+    while output.length < 80 do
+        output << "\0".b
+    end
+
+    # write the expected number of triangles
+    output << [@faces.length].pack("L")
+
+    # write out the triangle data
+    for face in @faces do
+      output << face.to_stl("binary")
+    end
+    return output
+  end
+
+  def output_obj
+    return "FIXME: obj output."
   end
 
   private :process_binary

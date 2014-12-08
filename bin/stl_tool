@@ -1,13 +1,47 @@
 #!/usr/bin/env ruby
 
 require 'optparse'
-require '../lib/stl_tool'
+require 'stl_tool'
 
 
-if ARGV.length == 0
-    ARGV = ["--help"]
+#
+# With the provided cmd arguments and a valid input file, produce some
+# kind of meaningful output.
+#
+def main(model, options)
+  if options[:stats]
+    model_stats(model)
+    exit
+  end
+
+  if options[:transcode]
+    output = nil
+    ext = nil
+    if options[:transcode] == "STL_BIN"
+      output = model.output_bin
+      ext = "stl"
+    end
+    if not options[:output]
+      put output
+    else
+      target = options[:output]      
+      if not File.file?(target)
+        if File.directory?(target)
+          target << "/" << File.basename(options[:input])
+          target << ".transcoded.#{ext}"
+        else
+          if !File.directory?(File.dirname(target))
+            puts "Cannot save output to #{target} (parent directory does not exist)."
+            exit
+          end
+        end
+      end
+      target = File.absolute_path(target)
+      out_file = File.open(target, "wb")
+      out_file.write(output)
+    end
+  end
 end
-
 
 options = {}
 OptionParser.new do |opts|
@@ -21,19 +55,44 @@ OptionParser.new do |opts|
     options[:stats] = s
   end
 
+  opts.on("-o [PATH]", "--output [PATH]",
+          "Optional outut target.") do |path|
+    options[:output] = path
+  end
+
+  opts.on("-t [FORMAT]", "--transcode [FORMAT]",
+          "Transcode model to specified format.") do |f|
+    options[:transcode] = f
+  end
+
+  opts.on("--list-formats", "Lists supported output format names") do |f|
+    options[:list_formats] = f
+  end
+
   opts.on("-v", "--[no-]verbose", "Verbose output") do |v|
     options[:verbose] = v
   end
 
 end.parse!
 
-
-if File.file?(options[:input])
-  model = STLModel.new(options[:input], options[:verbose])
-  if options[:stats]
-    model_stats(model)
-  end
-else
-  puts "Input path does not seem to point to a file :("
+if options[:list_formats]
+  puts "The following output formats are supported by the --transcode option:"
+  puts " - STL_BIN"
+  #puts " - STL_ASCII"
+  #puts " - OBJ"
+  #puts " - PDF"
+  exit
 end
 
+if options[:output] && !options[:transcode]
+  puts "The output path option requires the transcode option to be set."
+  exit
+end
+
+if options[:input] && File.file?(options[:input])
+  model = STLModel.new(options[:input], options[:verbose])
+  main(model, options)
+else
+  puts "Input path does not seem to point to a file :("
+  # FIXME: try to read from STDIN at this point
+end
